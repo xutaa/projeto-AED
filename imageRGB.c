@@ -283,26 +283,21 @@ void ImageDestroy(Image* imgp) {
 /// (The caller is responsible for destroying the returned image!)
 Image ImageCopy(const Image img) {
   assert(img != NULL);
-  assert(img->height > 0 && img->width > 0);
 
-  uint32 new_image_height = img->height;
-  uint32 new_image_width = img->width;
-  
-  Image new_image = ImageCreate(new_image_width,new_image_height);
+  Image new_image = ImageCreate(img->width, img->height);
   if (new_image == NULL) return NULL;
   
-  //new_image->num_colors = img->num_colors;
-
-  for (int i = 0; i < img->num_colors; i++){
-    new_image->LUT[i] = img->LUT[i];
-  }
-
-  for (uint32 h = 0; h < img->height; h++){
-    for (uint32 w = 0; w < img->width; w++){
+  for (uint32 h = 0; h < img->height; h++) {
+    for (uint32 w = 0; w < img->width; w++) {
       new_image->image[h][w] = img->image[h][w];
-    }    
+    }
   }
 
+  for (uint16 i = 0; i < img->num_colors; i++)
+  {
+    LUTAllocColor(new_image, img->LUT[i]);
+  }
+  
   return new_image;
 }
 
@@ -410,8 +405,7 @@ Image ImageLoadPBM(const char* filename) {  ///
   uint8 bytes[nbytes];
   uint8 raw_row[nbytes * 8];
   for (uint32 i = 0; i < img->height; i++) {
-    check(fread(bytes, sizeof(uint8), nbytes, f) == (size_t)nbytes,
-          "Reading pixels");
+    check(fread(bytes, sizeof(uint8), nbytes, f) == (size_t)nbytes, "Reading pixels");
     unpackBits(nbytes, bytes, raw_row);
     img->image[i] = AllocateRowArray((uint32)w);
     for (uint32 j = 0; j < (uint32)w; j++) {
@@ -449,8 +443,7 @@ int ImageSavePBM(const Image img, const char* filename) {  ///
     // Fill padding pixels with WHITE
     memset(raw_row + w, WHITE, nbytes * 8 - w);
     packBits(nbytes, bytes, raw_row);
-    check(fwrite(bytes, sizeof(uint8), nbytes, f) == (size_t)nbytes,
-          "Writing pixels failed");
+    check(fwrite(bytes, sizeof(uint8), nbytes, f) == (size_t)nbytes, "Writing pixels failed");
   }
 
   // Cleanup
@@ -572,18 +565,18 @@ int ImageIsEqual(const Image img1, const Image img2) {
   assert(img1 != NULL);
   assert(img2 != NULL);
   
-  if(img1 == img2) return 1;
-  if(img1->height != img2->height) return 0;
-  if(img1->width != img2->width) return 0;
+  if (img1 == img2) return 1;
+  if (img1->height != img2->height) return 0;
+  if (img1->width != img2->width) return 0;
   
-  for (uint32 h = 0; h < img1->height; h++){
-    for (uint32 w = 0; w < img1->width; w++){
+  for (uint32 h = 0; h < img1->height; h++) {
+    for (uint32 w = 0; w < img1->width; w++) {
       rgb_t img1_pixel_color = img1->LUT[img1->image[h][w]];
       rgb_t img2_pixel_color = img2->LUT[img2->image[h][w]];
-      if(img1_pixel_color == img2_pixel_color) return 1;
+      if (img1_pixel_color != img2_pixel_color) return 0;
     }
   }
-  return 0;
+  return 1;
 }
 
 int ImageIsDifferent(const Image img1, const Image img2) {
@@ -609,18 +602,17 @@ int ImageIsDifferent(const Image img1, const Image img2) {
 /// (The caller is responsible for destroying the returned image!)
 Image ImageRotate90CW(const Image img) {
   assert(img != NULL);
-  assert(img->width>0 && img->height>0);
 
   Image new_image = ImageCreate(img->height, img->width);
-  if(new_image == NULL) return NULL;
+  if (new_image == NULL) return NULL;
 
-  for (uint16 lut_index = 0; lut_index < img->num_colors; lut_index++){
+  for (uint16 lut_index = 0; lut_index < img->num_colors; lut_index++) {
     LUTAllocColor(new_image, img->LUT[lut_index]);
   }
 
-  for (uint32 h = 0; h < new_image->height; h++){
-    for (uint32 w = 0; w < new_image->width; w++){
-      new_image->image[h][w] = img->image[(img->height - 1) - w][h];
+  for (uint32 h = 0; h < new_image->height; h++) {
+    for (uint32 w = 0; w < new_image->width; w++) {
+      new_image->image[h][w] = img->image[(img->height-1)-w][h];
     }
   }
 
@@ -635,21 +627,17 @@ Image ImageRotate90CW(const Image img) {
 /// (The caller is responsible for destroying the returned image!)
 Image ImageRotate180CW(const Image img) {
   assert(img != NULL);
-  assert(img->width>0 && img->height>0);
 
-  uint32 new_image_width = img->width;
-  uint32 new_image_height = img->height;
+  Image new_image = ImageCreate(img->width, img->height);
+  if (new_image == NULL) return NULL;
 
-  Image new_image = ImageCreate(new_image_width, new_image_height);
-  if(new_image == NULL) return NULL;
-
-  for (uint16 lut_index = 0; lut_index < img->num_colors; lut_index++){
+  for (uint16 lut_index = 0; lut_index < img->num_colors; lut_index++) {
     LUTAllocColor(new_image, img->LUT[lut_index]);
   }
-
-  for (uint32 h = 0; h < new_image->height; h++){
-    for (uint32 w = 0; w < new_image->width; w++){
-      new_image->image[h][w] = img->image[(img->height) - 1 - h][(img->width)- 1 - w];
+  
+  for (uint32 h = 0; h < new_image->height; h++) {
+    for (uint32 w = 0; w < new_image->width; w++) {
+      new_image->image[h][w] = img->image[(img->height-1)-h][(img->width-1)-w];
     }
   }
 
