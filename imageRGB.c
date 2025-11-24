@@ -760,7 +760,6 @@ int ImageRegionFillingRecursive(Image img, int columnIndex, int rowIndex, uint16
   assert(img != NULL);
   assert(ImageIsValidPixel(img, columnIndex, rowIndex));
   assert(label < img->num_colors);
-  printf("col %d, row %d\n", columnIndex, rowIndex);
   return _imageRegionFillingRecursive(img, columnIndex, rowIndex, label, img->image[rowIndex][columnIndex]);
 }
 
@@ -790,7 +789,6 @@ int ImageRegionFillingWithSTACK(Image img, int u, int v, uint16 label)
   assert(ImageIsValidPixel(img, u, v));
   assert(label < FIXED_LUT_SIZE);
 
-  printf("col %d, row %d\n", u, v);
   if (img->image[v][u] == label)
     return 0;
 
@@ -831,7 +829,6 @@ int ImageRegionFillingWithQUEUE(Image img, int u, int v, uint16 label)
   assert(ImageIsValidPixel(img, u, v));
   assert(label < FIXED_LUT_SIZE);
 
-  printf("col %d, row %d\n", u, v);
   if (img->image[v][u] == label)
     return 0;
 
@@ -868,13 +865,13 @@ int ImageSegmentation(Image img, FillingFunction fillFunct)
   Image image = ImageCopy(img);
 
   int regions = 0;
-  rgb_t color = GenerateNextColor(0x000000);
-  int label = LUTAllocColor(image, color);
+  rgb_t color;
+  int label;
   for (uint16 rowIndex = 0; rowIndex < image->width; rowIndex++)
   {
     for (uint16 columnIndex = 0; columnIndex < image->height; columnIndex++)
     {
-      if (image->image[rowIndex][columnIndex] != label)
+      if (image->image[rowIndex][columnIndex] == 0)
       {
         regions++;
         color = GenerateNextColor(color);

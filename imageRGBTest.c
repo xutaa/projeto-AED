@@ -349,9 +349,8 @@ static void TestImageRegionFillingAndSegmentation(int section_num) {
     printf("5.4: ImageSegmentation (with STACK filling)\n");
     Image img_seg_stack = ImageCopy(img_base);
     int regions_stack = ImageSegmentation(img_seg_stack, &ImageRegionFillingWithSTACK);
-	printf("regions_stack = %d\n", regions_stack);
     // 3x3 = 9 regiões, 4 brancas segmentadas.
-    int check5_4 = (regions_stack == 9);
+    int check5_4 = (regions_stack == 4);
     ASSERT_CHECK(check5_4, "ImageSegmentation_Stack_RegionsCount", &local_passed_count, &local_total_count);
     ImageDestroy(&img_seg_stack);
     
@@ -359,10 +358,17 @@ static void TestImageRegionFillingAndSegmentation(int section_num) {
     printf("5.5: ImageSegmentation (with QUEUE filling)\n");
     Image img_seg_queue = ImageCopy(img_base);
     int regions_queue = ImageSegmentation(img_seg_queue, &ImageRegionFillingWithQUEUE);
-	printf("regions_queue = %d\n", regions_queue);
-    int check5_5 = (regions_queue == 9);
+    int check5_5 = (regions_queue == 4);
     ASSERT_CHECK(check5_5, "ImageSegmentation_Queue_RegionsCount", &local_passed_count, &local_total_count);
     ImageDestroy(&img_seg_queue);
+
+    // 5.6 - ImageSegmentation (usando RECURSIVE)
+    printf("5.6: ImageSegmentation (with RECURSIVE filling)\n");
+    Image img_seg_rec = ImageCopy(img_base);
+    int regions_rec = ImageSegmentation(img_seg_rec, &ImageRegionFillingRecursive);
+    int check5_6 = (regions_rec == 4);
+    ASSERT_CHECK(check5_6, "ImageSegmentation_Recursive_RegionsCount", &local_passed_count, &local_total_count);
+    ImageDestroy(&img_seg_rec);
     
     // Cleanup
     ImageDestroy(&img_base);
@@ -379,19 +385,19 @@ static void TestImageIsValidPixelFunction(int section_num) {
     int local_passed_count = 0;
     int local_total_count = 0;
 
-    Image img = ImageCreate(10, 5); // W=10, H=5. Coordenadas (u=linha, v=coluna). u: 0-4, v: 0-9
+    Image img = ImageCreate(10, 5); // W=10, H=5. Coordenadas (u=coluna, v=linha). u: 0-9, v: 0-5
     
     // 6.1 - Casos Válidos (u: 0-4, v: 0-9)
     printf("6.1: ImageIsValidPixel (Valid)\n");
     ASSERT_CHECK(ImageIsValidPixel(img, 0, 0), "ImageIsValidPixel_TopLeft", &local_passed_count, &local_total_count);
-    ASSERT_CHECK(ImageIsValidPixel(img, 4, 9), "ImageIsValidPixel_BottomRight", &local_passed_count, &local_total_count);
-    ASSERT_CHECK(ImageIsValidPixel(img, 2, 5), "ImageIsValidPixel_Middle", &local_passed_count, &local_total_count);
+    ASSERT_CHECK(ImageIsValidPixel(img, 9, 4), "ImageIsValidPixel_BottomRight", &local_passed_count, &local_total_count);
+    ASSERT_CHECK(ImageIsValidPixel(img, 5, 2), "ImageIsValidPixel_Middle", &local_passed_count, &local_total_count);
     
     // 6.2 - Casos Inválidos
     printf("6.2: ImageIsValidPixel (Invalid)\n");
     ASSERT_CHECK(!ImageIsValidPixel(img, -1, 5), "ImageIsValidPixel_Negative_U", &local_passed_count, &local_total_count);
-    ASSERT_CHECK(!ImageIsValidPixel(img, 5, 5), "ImageIsValidPixel_Out_of_Bounds_U (5 >= H=5)", &local_passed_count, &local_total_count);
-    ASSERT_CHECK(!ImageIsValidPixel(img, 2, 10), "ImageIsValidPixel_Out_of_Bounds_V (10 >= W=10)", &local_passed_count, &local_total_count);
+    ASSERT_CHECK(!ImageIsValidPixel(img, 5, 5), "ImageIsValidPixel_Out_of_Bounds_V (5 >= H=5)", &local_passed_count, &local_total_count);
+    ASSERT_CHECK(!ImageIsValidPixel(img, 10, 2), "ImageIsValidPixel_Out_of_Bounds_U (10 >= W=10)", &local_passed_count, &local_total_count);
 
     // Cleanup
     ImageDestroy(&img);
