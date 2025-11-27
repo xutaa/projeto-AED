@@ -98,15 +98,29 @@ static void check(int condition, const char *failmsg)
 void ImageInit(void)
 { ///
   InstrCalibrate();
-  InstrName[0] = "pixmem";         // InstrCount[0] will count pixel array acesses
-  InstrName[1] = "pixvalidations"; // InstrCount[0] will count pixel array acesses
-  // Name other counters here...
+  InstrName[0] = "pixreads";         // InstrCount[0] = pixel array reads
+  InstrName[1] = "pixwrites";        // InstrCount[1] = pixel array writes
+  InstrName[2] = "lutreads";         // InstrCount[2] = lut reads
+  InstrName[3] = "lutwrites";        // InstrCount[3] = lut writes
+  InstrName[4] = "PIXVALIDATIONS";         // InstrCount[4] = atomic if statements
+  InstrName[5] = "stackops";        // InstrCount[5] = stack operations
+  InstrName[6] = "queueops";        // InstrCount[6] = queue operations
+  InstrName[7] = "peak_stack";      // InstrCount[7] = peak stack usage
+  InstrName[8] = "peak_queue";      // InstrCount[8] = peak queue usage
+  InstrName[9] = "peak_rec_depth";  // InstrCount[9] = peak recursion depth
 }
 
 // Macros to simplify accessing instrumentation counters:
-#define PIXMEM InstrCount[0]
-#define PIXVALIDATIONS InstrCount[1]
-// Add more macros here...
+#define PIXREADS InstrCount[0]
+#define PIXWRITES InstrCount[1]
+#define LUTREADS InstrCount[2]
+#define LUTWRITES InstrCount[3]
+#define PIXVALIDATIONS InstrCount[4]
+#define STACKOPS InstrCount[5]
+#define QUEUEOPS InstrCount[6]
+#define PEAKSTACK InstrCount[7]
+#define PEAKQUEUE InstrCount[8]
+#define PEAKRECDEPTH InstrCount[9]
 
 // TIP: Search for PIXMEM or InstrCount to see where it is incremented!
 
@@ -202,9 +216,9 @@ Image ImageCreate(uint32 width, uint32 height)
   Image img = AllocateImageHeader(width, height);
 
   // Creating the image rows
-  for (uint32 rowIndex = 0; rowIndex < height; rowIndex++)
+  for (uint32 v = 0; v < height; v++)
   {
-    img->image[rowIndex] = AllocateRowArray(width); // Alloc all WHITE row
+    img->image[v] = AllocateRowArray(width); // Alloc all WHITE row
   }
 
   return img;
@@ -233,13 +247,13 @@ Image ImageCreateChess(uint32 width, uint32 height, uint32 edge, rgb_t color)
   // Assigning the color to each image pixel
 
   // Pixel (0, 0) gets the chosen color label
-  for (uint32 rowIndex = 0; rowIndex < height; rowIndex++)
+  for (uint32 v = 0; v < height; v++)
   {
-    uint32 I = rowIndex / edge;
-    for (uint32 columnIndex = 0; columnIndex < width; columnIndex++)
+    uint32 I = v / edge;
+    for (uint32 u = 0; u < width; u++)
     {
-      uint32 J = columnIndex / edge;
-      img->image[rowIndex][columnIndex] = (I + J) % 2 ? 0 : label;
+      uint32 J = u / edge;
+      img->image[v][u] = (I + J) % 2 ? 0 : label;
     }
   }
 
@@ -268,13 +282,13 @@ Image ImageCreatePalete(uint32 width, uint32 height, uint32 edge)
   uint32 wtiles = width / edge;
 
   // Pixel (0, 0) gets the chosen color label
-  for (uint32 rowIndex = 0; rowIndex < height; rowIndex++)
+  for (uint32 v = 0; v < height; v++)
   {
-    uint32 I = rowIndex / edge;
-    for (uint32 columnIndex = 0; columnIndex < width; columnIndex++)
+    uint32 I = v / edge;
+    for (uint32 u = 0; u < width; u++)
     {
-      uint32 J = columnIndex / edge;
-      img->image[rowIndex][columnIndex] = (I * wtiles + J) % FIXED_LUT_SIZE;
+      uint32 J = u / edge;
+      img->image[v][u] = (I * wtiles + J) % FIXED_LUT_SIZE;
     }
   }
 
@@ -292,9 +306,9 @@ void ImageDestroy(Image *imgp)
 
   Image img = *imgp;
 
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    free(img->image[rowIndex]);
+    free(img->image[v]);
   }
   free(img->image);
   free(img->LUT);
@@ -316,11 +330,11 @@ Image ImageCopy(const Image img)
   if (new_image == NULL)
     return NULL;
 
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    for (uint32 w = 0; w < img->width; w++)
+    for (uint32 u = 0; u < img->width; u++)
     {
-      new_image->image[rowIndex][w] = img->image[rowIndex][w];
+      new_image->image[v][u] = img->image[v][u];
     }
   }
 
@@ -344,11 +358,11 @@ void ImageRAWPrint(const Image img)
   printf("RAW image\n");
 
   // Print the pixel labels of each image row
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    for (uint32 columnIndex = 0; columnIndex < img->width; columnIndex++)
+    for (uint32 u = 0; u < img->width; u++)
     {
-      printf("%2d", img->image[rowIndex][columnIndex]);
+      printf("%2d", img->image[v][u]);
     }
     // At current row end
     printf("\n");
@@ -449,14 +463,14 @@ Image ImageLoadPBM(const char *filename)
   // using VLAs...
   uint8 bytes[nbytes];
   uint8 raw_row[nbytes * 8];
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
     check(fread(bytes, sizeof(uint8), nbytes, f) == (size_t)nbytes, "Reading pixels");
     unpackBits(nbytes, bytes, raw_row);
-    img->image[rowIndex] = AllocateRowArray((uint32)w);
-    for (uint32 columnIndex = 0; columnIndex < (uint32)w; columnIndex++)
+    img->image[v] = AllocateRowArray((uint32)w);
+    for (uint32 u = 0; u < (uint32)w; u++)
     {
-      img->image[rowIndex][columnIndex] = (uint16)raw_row[columnIndex];
+      img->image[v][u] = (uint16)raw_row[u];
     }
   }
 
@@ -484,11 +498,11 @@ int ImageSavePBM(const Image img, const char *filename)
   // using VLAs...
   uint8 bytes[nbytes];
   uint8 raw_row[nbytes * 8];
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    for (uint32 columnIndex = 0; columnIndex < img->width; columnIndex++)
+    for (uint32 u = 0; u < img->width; u++)
     {
-      raw_row[columnIndex] = (uint8)img->image[rowIndex][columnIndex];
+      raw_row[u] = (uint8)img->image[v][u];
     }
     // Fill padding pixels with WHITE
     memset(raw_row + w, WHITE, nbytes * 8 - w);
@@ -531,9 +545,9 @@ Image ImageLoadPPM(const char *filename)
   Image img = ImageCreate((uint32)w, (uint32)h);
 
   // Read pixels
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    for (uint32 columnIndex = 0; columnIndex < img->width; columnIndex++)
+    for (uint32 u = 0; u < img->width; u++)
     {
       int r, g, b;
       check(fscanf(f, "%d %d %d", &r, &g, &b) == 3 && 0 <= r && r <= levels &&
@@ -541,8 +555,8 @@ Image ImageLoadPPM(const char *filename)
             "Invalid pixel color");
       rgb_t color = r << 16 | g << 8 | b;
       uint16 index = LUTAllocColor(img, color);
-      img->image[rowIndex][columnIndex] = index;
-      // printf("[%u][%u]: (%d,%d,%d) -> %u (%6x)\n", rowIndex, columnIndex, r,g,b, index,
+      img->image[v][u] = index;
+      // printf("[%u][%u]: (%d,%d,%d) -> %u (%6x)\n", v, u, r,g,b, index,
       // color);
     }
     fprintf(f, "\n");
@@ -567,11 +581,11 @@ int ImageSavePPM(const Image img, const char *filename)
   check(fprintf(f, "P3\n%d %d\n255\n", w, h) > 0, "Writing header failed");
 
   // The pixel RGB values
-  for (uint32 rowIndex = 0; rowIndex < img->height; rowIndex++)
+  for (uint32 v = 0; v < img->height; v++)
   {
-    for (uint32 columnIndex = 0; columnIndex < img->width; columnIndex++)
+    for (uint32 u = 0; u < img->width; u++)
     {
-      uint16 index = img->image[rowIndex][columnIndex];
+      uint16 index = img->image[v][u];
       rgb_t color = img->LUT[index];
       int r = color >> 16 & 0xff;
       int g = color >> 8 & 0xff;
@@ -635,9 +649,11 @@ int ImageIsEqual(const Image img1, const Image img2)
   {
     for (uint32 w = 0; w < img1->width; w++)
     {
-      rgb_t img1_pixel_color = img1->LUT[img1->image[h][w]];
-      rgb_t img2_pixel_color = img2->LUT[img2->image[h][w]];
-      if (img1_pixel_color != img2_pixel_color)
+      // Count memory accesses: two image index reads + two LUT reads
+      PIXREADS += 2;
+      LUTREADS += 2;
+      PIXVALIDATIONS++;
+      if (img1->LUT[img1->image[h][w]] != img2->LUT[img2->image[h][w]])
         return 0;
     }
   }
@@ -709,11 +725,11 @@ Image ImageRotate180CW(const Image img)
     LUTAllocColor(new_image, img->LUT[lut_index]);
   }
 
-  for (uint32 rowIndex = 0; rowIndex < new_image->height; rowIndex++)
+  for (uint32 v = 0; v < new_image->height; v++)
   {
     for (uint32 w = 0; w < new_image->width; w++)
     {
-      new_image->image[rowIndex][w] = img->image[(img->height - 1) - rowIndex][(img->width - 1) - w];
+      new_image->image[v][w] = img->image[(img->height - 1) - v][(img->width - 1) - w];
     }
   }
 
@@ -745,16 +761,16 @@ int ImageIsValidPixel(const Image img, int u, int v)
 
 /// Each function carries out a different version of the algorithm.
 
-static int canPaint(Image img, int columnIndex, int rowIndex, uint16 label)
+static int canPaint(Image img, int u, int v, uint16 label)
 {
   PIXVALIDATIONS++;
-  if (!ImageIsValidPixel(img, columnIndex, rowIndex)) 
+  if (!ImageIsValidPixel(img, u, v)) 
     return 0;
-  PIXVALIDATIONS++;
-  if (img->image[rowIndex][columnIndex] == label)
+  PIXREADS++;
+  if (img->image[v][u] == label)
     return 0;
-  PIXVALIDATIONS++;
-  if (img->image[rowIndex][columnIndex] != BACKGROUND)
+  PIXREADS++;
+  if (img->image[v][u] != BACKGROUND)
     return 0;
   return 1;
 }
@@ -764,38 +780,47 @@ static int canPaintC(Image img, PixelCoords coords, uint16 label)
   return canPaint(img, coords.u, coords.v, label);
 }
 
-static int _imageRegionFillingRecursive(Image img, int u, int v, uint16 label)
+static int _imageRegionFillingRecursive(Image img, int u, int v, uint16 label, int depth)
 {
+  if ((unsigned long)depth > PEAKRECDEPTH)
+    PEAKRECDEPTH = (unsigned long)depth;
   if (!canPaint(img, u, v, label))
+  {
     return 0;
+  }
   img->image[v][u] = label;
+  PIXWRITES++;
   int output = 1;
-  output += _imageRegionFillingRecursive(img, u - 1, v, label);
-  output += _imageRegionFillingRecursive(img, u, v - 1, label);
-  output += _imageRegionFillingRecursive(img, u + 1, v, label);
-  output += _imageRegionFillingRecursive(img, u, v + 1, label);
+  int next_depth = depth + 1;
+  output += _imageRegionFillingRecursive(img, u - 1, v, label, next_depth);
+  output += _imageRegionFillingRecursive(img, u, v - 1, label, next_depth);
+  output += _imageRegionFillingRecursive(img, u + 1, v, label, next_depth);
+  output += _imageRegionFillingRecursive(img, u, v + 1, label, next_depth);
   return output;
 }
 
 /// Region growing using the recursive flood-filling algorithm.
-int ImageRegionFillingRecursive(Image img, int columnIndex, int rowIndex, uint16 label)
+int ImageRegionFillingRecursive(Image img, int u, int v, uint16 label)
 {
   assert(img != NULL);
-  assert(ImageIsValidPixel(img, columnIndex, rowIndex));
+  assert(ImageIsValidPixel(img, u, v));
   assert(label < img->num_colors);
-  return _imageRegionFillingRecursive(img, columnIndex, rowIndex, label);
+  return _imageRegionFillingRecursive(img, u, v, label, 1);
 }
 
 static int _imageRegionFillingWithSTACK(Image img, uint16 label, Stack *stack)
 {
-  PixelCoords coords = StackPop(stack);
+  PixelCoords coords = StackPop(stack); STACKOPS++;
   if (!canPaintC(img, coords, label))
     return 0;
   img->image[coords.v][coords.u] = label;
-  StackPush(stack, PixelCoordsCreate(coords.u - 1, coords.v));
-  StackPush(stack, PixelCoordsCreate(coords.u, coords.v - 1));
-  StackPush(stack, PixelCoordsCreate(coords.u + 1, coords.v));
-  StackPush(stack, PixelCoordsCreate(coords.u, coords.v + 1));
+  PIXWRITES++;
+  StackPush(stack, PixelCoordsCreate(coords.u - 1, coords.v)); STACKOPS++;
+  StackPush(stack, PixelCoordsCreate(coords.u, coords.v - 1)); STACKOPS++;
+  StackPush(stack, PixelCoordsCreate(coords.u + 1, coords.v)); STACKOPS++;
+  StackPush(stack, PixelCoordsCreate(coords.u, coords.v + 1)); STACKOPS++;
+  if (StackSize(stack) > PEAKSTACK)
+    PEAKSTACK = StackSize(stack);
   return 1;
 }
 
@@ -807,6 +832,7 @@ int ImageRegionFillingWithSTACK(Image img, int u, int v, uint16 label)
   assert(ImageIsValidPixel(img, u, v));
   assert(label < FIXED_LUT_SIZE);
 
+  PIXREADS++;
   PIXVALIDATIONS++;
   if (img->image[v][u] == label)
     return 0;
@@ -814,28 +840,29 @@ int ImageRegionFillingWithSTACK(Image img, int u, int v, uint16 label)
   Stack *stack = StackCreate(img->height * img->width / 4 * 3);
   assert(stack != NULL);
 
-  StackPush(stack, PixelCoordsCreate(u, v));
+  StackPush(stack, PixelCoordsCreate(u, v)); STACKOPS++;
+  PEAKSTACK = StackSize(stack);
 
   int paintedPixels = 0;
-
   while (!StackIsEmpty(stack))
-  {
     paintedPixels += _imageRegionFillingWithSTACK(img, label, stack);
-  }
   StackDestroy(&stack);
   return paintedPixels;
 }
 
 static int _imageRegionFillingWithQUEUE(Image img, uint16 label, Queue *queue)
 {
-  PixelCoords coords = QueueDequeue(queue);
+  PixelCoords coords = QueueDequeue(queue); QUEUEOPS++;
   if (!canPaintC(img, coords, label))
     return 0;
   img->image[coords.v][coords.u] = label;
-  QueueEnqueue(queue, PixelCoordsCreate(coords.u - 1, coords.v));
-  QueueEnqueue(queue, PixelCoordsCreate(coords.u, coords.v - 1));
-  QueueEnqueue(queue, PixelCoordsCreate(coords.u + 1, coords.v));
-  QueueEnqueue(queue, PixelCoordsCreate(coords.u, coords.v + 1));
+  PIXWRITES++;
+  QueueEnqueue(queue, PixelCoordsCreate(coords.u - 1, coords.v)); QUEUEOPS++;
+  QueueEnqueue(queue, PixelCoordsCreate(coords.u, coords.v - 1)); QUEUEOPS++;
+  QueueEnqueue(queue, PixelCoordsCreate(coords.u + 1, coords.v)); QUEUEOPS++;
+  QueueEnqueue(queue, PixelCoordsCreate(coords.u, coords.v + 1)); QUEUEOPS++;
+  if (QueueSize(queue) > PEAKQUEUE)
+    PEAKQUEUE = QueueSize(queue);
   return 1;
 }
 
@@ -847,6 +874,7 @@ int ImageRegionFillingWithQUEUE(Image img, int u, int v, uint16 label)
   assert(ImageIsValidPixel(img, u, v));
   assert(label < FIXED_LUT_SIZE);
 
+  PIXREADS++;
   PIXVALIDATIONS++;
   if (img->image[v][u] == label)
     return 0;
@@ -854,15 +882,14 @@ int ImageRegionFillingWithQUEUE(Image img, int u, int v, uint16 label)
   Queue *queue = QueueCreate(img->height * img->width / 4 * 3);
   assert(queue != NULL);
 
-  PixelCoords coords = PixelCoordsCreate(u, v);
-  QueueEnqueue(queue, coords);
-  int count = 0;
+  QueueEnqueue(queue, PixelCoordsCreate(u, v)); QUEUEOPS++;
+  PEAKQUEUE = QueueSize(queue);
+
+  int paintedPixels = 0;
   while (!QueueIsEmpty(queue))
-  {
-    count += _imageRegionFillingWithQUEUE(img, label, queue);
-  }
+    paintedPixels += _imageRegionFillingWithQUEUE(img, label, queue);
   QueueDestroy(&queue);
-  return count;
+  return paintedPixels;
 }
 
 /// Image Segmentation
@@ -883,16 +910,16 @@ int ImageSegmentation(Image img, FillingFunction fillFunct)
   int regions = 0;
   rgb_t color = GenerateNextColor(0);
   int label;
-  for (uint16 rowIndex = 0; rowIndex < img->width; rowIndex++)
-  {
-    for (uint16 columnIndex = 0; columnIndex < img->height; columnIndex++)
-    {
-      if (img->image[rowIndex][columnIndex] == 0)
-      {
+  for (uint16 v = 0; v < img->height; v++) {
+    for (uint16 u = 0; u < img->width; u++) {
+      PIXREADS++;
+      PIXVALIDATIONS++;
+      if (img->image[v][u] == 0) {
         regions++;
         color = GenerateNextColor(color);
         label = LUTAllocColor(img, color);
-        fillFunct(img, columnIndex, rowIndex, label);
+        // u = column index, v = row index
+        fillFunct(img, u, v, label);
       }
     }
   }

@@ -4,13 +4,19 @@
 
 CFLAGS = -Wall -Wextra -O2 -g
 
-PROGS = imageRGBTest
+PROGS = imageRGBTest perf_test
 
 # Default rule: make all programs
 all: $(PROGS)
 
 imageRGBTest: imageRGBTest.o imageRGB.o instrumentation.o error.o \
 			  PixelCoords.o PixelCoordsQueue.o PixelCoordsStack.o
+
+perf_test: perf_test.o imageRGB.o instrumentation.o error.o \
+			 PixelCoords.o PixelCoordsQueue.o PixelCoordsStack.o
+
+perf_test.o: imageRGB.h instrumentation.h error.h \
+			 PixelCoords.h PixelCoordsQueue.h PixelCoordsStack.h
 
 imageRGBTest.o: imageRGB.h instrumentation.h error.h \
                 PixelCoords.h PixelCoordsQueue.h PixelCoordsStack.h
