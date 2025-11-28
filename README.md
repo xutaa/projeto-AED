@@ -5,3 +5,4 @@ AED 2025 - Trabalho 1: Imagens com cor indexada (pseudocor)
     "$ make clean" to cleanup
     "$ make" to compile
     "$ ./imageRGBTest" to run tests
+    "$ ./sweep_perf" to run tests in volume
