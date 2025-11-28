@@ -9,6 +9,9 @@ out="results_sweep.csv"
 # Build latest perf_test
 make -s perf_test
 
+# Increase stack size to avoid segfault with deep recursion on large images
+ulimit -s 65536
+
 # Run perf_test (uses built-in default sizes + maze)
 ./perf_test > "$out"
 

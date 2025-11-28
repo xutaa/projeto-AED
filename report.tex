@@ -1,0 +1,278 @@
+\documentclass[a4paper,11pt]{article}
+
+% --- PACOTES ---
+\usepackage[portuguese]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{tikz} % Usado apenas para o caso de a imagem falhar (fallback)
+
+% --- MARGENS E LAYOUT (Essencial para as 6 páginas) ---
+\usepackage[top=3.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=2.5cm]{geometry}
+% --- CABEÇALHO ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{} % Limpa todos os cabeçalhos padrão
+
+% Lado Esquerdo: Texto
+\lhead{\small \textbf{Universidade de Aveiro}}
+
+% Lado Direito: Imagem (deti.png)
+\rhead{
+    % Verifica se a imagem existe na pasta.
+    % Se existir, usa-a. Se não (aqui no chat), desenha um exemplo para não dar erro.
+    \IfFileExists{deti.png}{
+        \includegraphics[height=1.2cm]{deti.png}
+    }{
+        \begin{tikzpicture}[baseline={(0,-0.1)}]
+             \node[draw, black, thick, rounded corners, minimum height=1cm, minimum width=2cm] {\textbf{DETI}};
+        \end{tikzpicture}
+    }
+}
+
+% Rodapé: Numeração da página
+\cfoot{\thepage}
+
+% --- TÍTULO ---
+\begin{document}
+
+% --- CAPA (TITLE PAGE) ---
+\begin{titlepage}
+    \centering % Centra tudo na página
+    
+    % --- LOGÓTIPO ---
+    % Usa a mesma lógica de segurança: se a imagem existir, usa-a; senão desenha.
+    \IfFileExists{deti.png}{
+        \includegraphics[width=6cm]{deti.png}
+    }{
+        \begin{tikzpicture}
+             \node[draw, black, thick, rounded corners, minimum height=3cm, minimum width=6cm] {\Huge \textbf{DETI}};
+        \end{tikzpicture}
+    }
+    
+    \vspace{1.5cm} % Espaço vertical
+    
+    % --- INSTITUIÇÃO ---
+    {\Large Universidade de Aveiro \par}
+    {\large Departamento de Eletrónica, Telecomunicações e Informática \par}
+    
+    \vspace{4cm} % Espaço grande até ao título
+    
+    % --- TÍTULO DO TRABALHO ---
+    {\Huge \textbf{Relatório do 1º Trabalho} \par}
+    \vspace{0.5cm}
+    {\LARGE Algoritmos e Estruturas de Dados \par}
+    \vspace{0.5cm}
+    {\Large \textit{O TAD imageRGB} \par}
+    
+    \vfill % Empurra o resto para o fundo da página
+    
+    % --- AUTORES ---
+    \begin{flushright} % Alinha os nomes à direita (fica mais elegante)
+        \large
+        \textbf{Realizado por:}\\
+        João Pedro Martins Castro Silva — 120610 \\
+        Rodrigo Loureiro Simões — 125514
+    \end{flushright}
+    
+    \vspace{1cm}
+    
+    % --- DATA ---
+    {\large \today \par}
+    
+\end{titlepage}
+
+% --- REINICIAR CONTAGEM DE PÁGINAS ---
+% A capa não conta. A Introdução será a página 1.
+\setcounter{page}{1}
+
+% ... O resto do teu relatório começa aqui (\section{Introdução}...)
+
+\pagebreak
+% --- 1. INTRODUÇÃO (EXPANDIDA) ---
+\section{Introdução}
+
+Este relatório descreve o trabalho realizado no âmbito da cadeira de Algoritmos e Estruturas de Dados, focado no desenvolvimento e análise do TAD \texttt{imageRGB}. O objetivo foi implementar um sistema de processamento de imagens e perceber como é que diferentes algoritmos se comportam na prática.
+
+O projeto trabalha com imagens representadas através de uma \textit{Look-Up Table} (LUT), que é uma forma de separar a estrutura da imagem (matriz de índices) da informação das cores (vetor RGB). Esta abordagem permite utilizar a memória de forma mais eficiente. 
+
+O trabalho está dividido em duas partes principais. Primeiro, analisámos a função \texttt{ImageIsEqual}, que compara duas imagens. Esta análise permitiu-nos comparar o resultado esperado (ao qual chegámos através da análise formal) e o resultado experimental () função foi útil para perceber como é que a complexidade teórica se relaciona com o que acontece na prática.
+
+Depois, focámo-nos nos algoritmos de segmentação de imagens, especificamente o \textit{Flood Fill}. Implementámos três estratégias diferentes: uma versão recursiva, outra com pilha (Stack) e outra com fila (Queue). O objetivo foi comparar estas abordagens e perceber qual é que funciona melhor, especialmente em termos de memória, porque descobrimos que é fácil dar problemas de \textit{Stack Overflow} se não tivermos cuidado.
+
+Em resumo, os objetivos principais deste trabalho foram:
+\begin{itemize}[noitemsep]
+    \item \textbf{Análise de Complexidade:} Estudar a função \texttt{ImageIsEqual} e comparar a teoria com os resultados experimentais.
+    \item \textbf{Comparação de Estratégias:} Avaliar as três implementações de \textit{flood filling} e ver qual é mais eficiente em tempo e memória.
+    \item \textbf{Discussão de Resultados:} Interpretar os dados obtidos e perceber quais são as melhores escolhas para trabalhar com imagens maiores.
+\end{itemize}
+
+\pagebreak
+% --- 2. ANÁLISE FORMAL ---
+\section{Função \texttt{ImageIsEqual}: Análise Formal}
+
+Antes de testar a função na prática, fizemos uma análise teórica para perceber como é que o algoritmo \texttt{ImageIsEqual} se deveria comportar. Basicamente, olhámos para o código e tentámos prever o que ia acontecer com base nos ciclos e condições.
+
+Seja $L$ a largura (\texttt{width}) e $A$ a altura (\texttt{height}) das imagens. O número total de píxeis é $n = L \times A$.
+
+\subsection{Verificações Iniciais}
+A primeira coisa que a função faz é verificar se vale a pena comparar os píxeis. Ela compara as dimensões das duas imagens e verifica se são o mesmo objeto em memória. Se as dimensões forem diferentes ou se for o mesmo ponteiro, a função termina logo ali.
+Estas verificações são sempre rápidas e não dependem do tamanho da imagem, ou seja, têm complexidade $O(1)$.
+
+\subsection{Melhor Caso}
+O melhor caso acontece quando conseguimos descobrir que as imagens são diferentes com o mínimo de trabalho. Há duas situações:
+\begin{enumerate}
+    \item \textbf{Dimensões Diferentes:} A verificação inicial apanha isto e nem chegamos a comparar píxeis (0 comparações).
+    \item \textbf{Diferença no Primeiro Píxel:} Se as dimensões forem iguais mas o primeiro píxel for diferente, só fazemos 1 comparação e já está.
+\end{enumerate}
+Nos dois casos, o tempo não depende de $n$.
+\[ T_{melhor}(n) = \Omega(1) \]
+
+\subsection{Pior Caso}
+O pior caso é quando temos que percorrer a imagem toda para ter a certeza do resultado. Isto acontece quando:
+\begin{itemize}
+    \item As duas imagens são completamente iguais;
+    \item A única diferença está no último píxel.
+\end{itemize}
+Nestes casos, os ciclos aninhados correm até ao fim. O número de comparações é igual ao número total de píxeis.
+\[ C(n) = \sum_{i=0}^{A-1} \sum_{j=0}^{L-1} 1 = L \times A = n \]
+Portanto, a complexidade no pior caso cresce linearmente com o tamanho da imagem.
+\[ T_{pior}(n) = O(n) \]
+
+\pagebreak 
+% --- 3. ANÁLISE EXPERIMENTAL ---
+\section{Função \texttt{ImageIsEqual}: Análise Experimental}
+
+\subsection{Metodologia}
+Para testar a função na prática, criámos um programa que gera imagens de vários tamanhos e as compara de formas diferentes.
+
+\textbf{Dimensões testadas:}
+\begin{itemize}[noitemsep]
+    \item Quadradas: $32\times32$ até $256\times256$.
+    \item Retangulares: Variadas (ex: $64\times128$, $256\times512$).
+\end{itemize}
+
+\textbf{Versões comparadas:}
+\begin{itemize}[noitemsep]
+    \item Própria imagem (mesmo endereço de memória).
+    \item Cópia exata (ImageCopy).
+    \item Versão rotacionada (ImageRotate180CW).
+    \item Imagem com dimensões diferentes.
+\end{itemize}
+
+\subsection{Resultados}
+Os resultados obtidos estão na tabela seguinte:
+\begin{table}[H]
+\centering
+\caption{Número de comparações executadas pela função \texttt{ImageIsEqual}.}
+\begin{tabular}{ccccc}
+\toprule
+Dimensão & Píxeis ($n$) & Conteúdo & $C(n)$ (Melhor) & $C(n)$ (Pior) \\
+\midrule
+$100\times100$ & 10\,000 & Iguais (cópia) & 10\,000 & 10\,000 \\
+$100\times100$ & 10\,000 & Diferentes (rot) & 1 & 10\,000 \\
+$64\times128$  & 8\,192  & Iguais (cópia) & 8\,192 & 8\,192 \\
+$64\times128$  & 8\,192  & Diferentes (rot) & 1 & 8\,192 \\
+$150\times150$ & 22\,500 & Iguais (cópia) & 22\,500 & 22\,500 \\
+$150\times150$ & 22\,500 & Diferentes (rot) & 1 & 22\,500 \\
+$128\times256$ & 32\,768 & Iguais (cópia) & 32\,768 & 32\,768 \\
+$128\times256$ & 32\,768 & Diferentes (rot) & 1 & 32\,768 \\
+$256\times256$ & 65\,536 & Iguais (cópia) & 65\,536 & 65\,536 \\
+$256\times256$ & 65\,536 & Diferentes (rot) & 1 & 7 \\
+$256\times512$ & 131\,072& Iguais (cópia) & 131\,072 & 131\,072 \\
+$256\times512$ & 131\,072& Diferentes (rot) & 1 & 7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussão dos resultados}
+Os resultados confirmam aquilo que esperávamos da análise teórica: a relação entre o número de píxeis e o número de comparações é linear no pior caso ($C(n) \in O(n)$).
+
+\subsubsection{Melhor Caso}
+\begin{enumerate}[noitemsep]
+    \item \textbf{Endereço Igual ou Dimensões Diferentes:} A função deteta isto logo no início e nem chega a fazer comparações (0 comparações).
+    \item \textbf{Diferença Imediata:} Se a diferença está no primeiro pixel, só fazemos 1 comparação e já está.
+\end{enumerate}
+
+\subsubsection{Pior Caso}
+Acontece quando as imagens são completamente iguais ou quando a única diferença está no último pixel. Nestes casos, temos que comparar todos os píxeis da imagem.
+
+\pagebreak
+% --- 4. SEGMENTAÇÃO ---
+\section{Segmentação de Regiões: Comparação das Estratégias}
+
+\subsection{Resultados Experimentais}
+A Tabela 2 apresenta o desempenho das três estratégias implementadas.
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Estratégia & Imagem & Píxeis & Tempo (ms) & Comp. Píxeis & Ops & Mem. Pico \\
+\midrule
+Recursivo & white64×64 & 4\,096 & 0.456 & 16\,385 & -- & 4\,065 \\
+Stack & white64×64 & 4\,096 & 0.420 & 16\,386 & 32\,770 & 8\,006 \\
+Queue & white64×64 & 4\,096 & 0.291 & 16\,386 & 32\,770 & 510 \\
+\midrule
+Recursivo & white128×128 & 16\,384 & 1.395 & 65\,537 & -- & 16\,321 \\
+Stack & white128×128 & 16\,384 & 1.432 & 65\,538 & 131\,074 & 32\,390 \\
+Queue & white128×128 & 16\,384 & 1.127 & 65\,538 & 131\,074 & 1\,022 \\
+\midrule
+Recursivo & white256×256 & 65\,536 & 7.452 & 262\,145 & -- & 65\,409 \\
+Stack & white256×256 & 65\,536 & 5.129 & 262\,146 & 524\,290 & 130\,310 \\
+Queue & white256×256 & 65\,536 & 4.117 & 262\,146 & 524\,290 & 2\,046 \\
+\midrule
+Recursivo & maze41×41 & 801 & 0.050 & 3\,205 & -- & 387 \\
+Stack & maze41×41 & 801 & 0.064 & 3\,206 & 6\,410 & 638 \\
+Queue & maze41×41 & 801 & 0.073 & 3\,206 & 6\,410 & 37 \\
+\midrule
+Recursivo & white128×256 & 32\,768 & 2.911 & 131\,073 & -- & 32\,705 \\
+Stack & white128×256 & 32\,768 & 2.298 & 131\,074 & 262\,146 & 65\,155 \\
+Queue & white128×256 & 32\,768 & 2.323 & 131\,074 & 262\,146 & 1\,029 \\
+\bottomrule
+\end{tabular}
+\caption{Comparação de desempenho entre estratégias de flood filling. Ops = operações de stack/queue; Mem. Pico = profundidade de recursão ou tamanho máximo de stack/queue.}
+\end{table}
+\textbf{Análise dos Resultados:}
+\begin{itemize}[noitemsep]
+    \item \textbf{Tempo de Execução}: A Queue (BFS) foi a mais rápida, especialmente nas imagens grandes (4.117 ms vs 5.129 ms para 256×256). A versão recursiva foi a mais lenta, provavelmente por causa do overhead das chamadas de função.
+    \item \textbf{Consumo de Memória}: Aqui é onde vemos as maiores diferenças:
+    \begin{itemize}[noitemsep]
+        \item Queue: $O(\sqrt{n})$ — cresce com o perímetro da região (2\,046 para 65\,536 píxeis)
+        \item Stack: $O(n)$ no pior caso — chegou a 130\,310 elementos para 65\,536 píxeis!
+        \item Recursivo: profundidade = 65\,409 para 65\,536 píxeis (basicamente todos os píxeis)
+    \end{itemize}
+    \item \textbf{Validações de Píxeis}: Os valores são parecidos nas três estratégias ($\approx$ 4× o número de píxeis), o que faz sentido porque todas exploram os vizinhos da mesma forma.
+    \item \textbf{Caso Maze}: No labirinto, a Queue foi muito superior (pico de 37 vs 638 da Stack), o que mostra que se adapta melhor a formas mais complicadas.
+\end{itemize}
+
+\subsection{Comparação Global}
+\begin{itemize}[noitemsep]
+    \item \textbf{Recursivo:} O código é mais simples e fácil de perceber, mas não dá para usar em imagens grandes porque dá \textit{stack overflow}. A profundidade da recursão é praticamente igual ao número de píxeis, o que é demasiado.
+    \item \textbf{Stack (DFS):} Esta versão resolve o problema do overflow usando a heap em vez da stack do sistema, mas mesmo assim gasta muita memória no pior caso ($O(n)$). Só vale a pena se a memória não for um problema.
+    \item \textbf{Queue (BFS):} \textbf{Esta é a melhor opção} para usar a sério: é mais rápida, usa menos memória de forma previsível ($O(\sqrt{n})$), e funciona bem mesmo em formas complicadas como labirintos.
+\end{itemize}
+
+\pagebreak
+% --- 5. CONCLUSÃO ---
+\section{Conclusão}
+Este trabalho foi útil para consolidar os conceitos que aprendemos sobre estruturas de dados e análise de algoritmos, aplicando-os num contexto prático de processamento de imagens.
+
+\textbf{Função ImageIsEqual:} Os testes confirmaram aquilo que calculámos teoricamente. No melhor caso (quando as imagens são diferentes), a função termina logo à primeira comparação ($O(1)$). No pior caso (imagens iguais), vimos o crescimento linear esperado $O(W \times H)$, com 2 acessos à memória e 1 comparação por píxel. Os números bateram certo com a teoria, o que mostra que a implementação com \textit{early exit} funciona bem.
+
+\textbf{Algoritmos de Flood Filling:} Ao comparar as três estratégias, percebemos que há sempre trade-offs entre simplicidade, robustez e eficiência:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Recursivo}: O código é o mais simples de perceber, mas não dá para usar em imagens grandes. A profundidade da recursão chega quase ao número total de píxeis (65\,409 para 65\,536 píxeis), o que ultrapassa os limites da stack e dá \textit{stack overflow}.
+    
+    \item \textbf{Stack (DFS)}: Esta versão resolve o problema do overflow porque usa a heap. Mas mesmo assim gasta muita memória no pior caso (130\,310 elementos para 65\,536 píxeis), o que pode ser um problema dependendo do sistema.
+    
+    \item \textbf{Queue (BFS)}: \textbf{Esta é claramente a melhor opção}. É mais rápida (cerca de 20\% que a Stack em imagens grandes), usa menos memória de forma previsível (2\,046 elementos para 65\,536 píxeis), e funciona bem mesmo em formas complicadas (no labirinto teve pico de 37 vs 638 da Stack).
+\end{itemize}
+
+No geral, os resultados experimentais confirmaram as previsões teóricas e mostraram que é importante escolher bem as estruturas de dados conforme o que precisamos (tempo vs memória) e o tipo de imagem. A instrumentação que implementámos foi essencial para conseguir medir tudo isto e validar as hipóteses.
+\end{document}

@@ -761,7 +761,7 @@ int ImageIsValidPixel(const Image img, int u, int v)
 
 /// Each function carries out a different version of the algorithm.
 
-static int canPaint(Image img, int u, int v, uint16 label)
+static int canPaint(Image img, int u, int v, uint16 label, uint16 original_label)
 {
   PIXVALIDATIONS++;
   if (!ImageIsValidPixel(img, u, v)) 
@@ -770,21 +770,21 @@ static int canPaint(Image img, int u, int v, uint16 label)
   if (img->image[v][u] == label)
     return 0;
   PIXREADS++;
-  if (img->image[v][u] != BACKGROUND)
+  if (img->image[v][u] != original_label)
     return 0;
   return 1;
 }
 
-static int canPaintC(Image img, PixelCoords coords, uint16 label)
+static int canPaintC(Image img, PixelCoords coords, uint16 label, uint16 original_label)
 {
-  return canPaint(img, coords.u, coords.v, label);
+  return canPaint(img, coords.u, coords.v, label, original_label);
 }
 
-static int _imageRegionFillingRecursive(Image img, int u, int v, uint16 label, int depth)
+static int _imageRegionFillingRecursive(Image img, int u, int v, uint16 label, uint16 original_label, int depth)
 {
   if ((unsigned long)depth > PEAKRECDEPTH)
     PEAKRECDEPTH = (unsigned long)depth;
-  if (!canPaint(img, u, v, label))
+  if (!canPaint(img, u, v, label, original_label))
   {
     return 0;
   }
@@ -792,10 +792,10 @@ static int _imageRegionFillingRecursive(Image img, int u, int v, uint16 label, i
   PIXWRITES++;
   int output = 1;
   int next_depth = depth + 1;
-  output += _imageRegionFillingRecursive(img, u - 1, v, label, next_depth);
-  output += _imageRegionFillingRecursive(img, u, v - 1, label, next_depth);
-  output += _imageRegionFillingRecursive(img, u + 1, v, label, next_depth);
-  output += _imageRegionFillingRecursive(img, u, v + 1, label, next_depth);
+  output += _imageRegionFillingRecursive(img, u - 1, v, label, original_label, next_depth);
+  output += _imageRegionFillingRecursive(img, u, v - 1, label, original_label, next_depth);
+  output += _imageRegionFillingRecursive(img, u + 1, v, label, original_label, next_depth);
+  output += _imageRegionFillingRecursive(img, u, v + 1, label, original_label, next_depth);
   return output;
 }
 
@@ -805,13 +805,13 @@ int ImageRegionFillingRecursive(Image img, int u, int v, uint16 label)
   assert(img != NULL);
   assert(ImageIsValidPixel(img, u, v));
   assert(label < img->num_colors);
-  return _imageRegionFillingRecursive(img, u, v, label, 1);
+  return _imageRegionFillingRecursive(img, u, v, label, img->image[v][u], 1);
 }
 
-static int _imageRegionFillingWithSTACK(Image img, uint16 label, Stack *stack)
+static int _imageRegionFillingWithSTACK(Image img, uint16 label, uint16 original_label, Stack *stack)
 {
   PixelCoords coords = StackPop(stack); STACKOPS++;
-  if (!canPaintC(img, coords, label))
+  if (!canPaintC(img, coords, label, original_label))
     return 0;
   img->image[coords.v][coords.u] = label;
   PIXWRITES++;
@@ -843,17 +843,19 @@ int ImageRegionFillingWithSTACK(Image img, int u, int v, uint16 label)
   StackPush(stack, PixelCoordsCreate(u, v)); STACKOPS++;
   PEAKSTACK = StackSize(stack);
 
+  uint16 original_label = img->image[v][u];
+
   int paintedPixels = 0;
   while (!StackIsEmpty(stack))
-    paintedPixels += _imageRegionFillingWithSTACK(img, label, stack);
+    paintedPixels += _imageRegionFillingWithSTACK(img, label, original_label, stack);
   StackDestroy(&stack);
   return paintedPixels;
 }
 
-static int _imageRegionFillingWithQUEUE(Image img, uint16 label, Queue *queue)
+static int _imageRegionFillingWithQUEUE(Image img, uint16 label, uint16 original_label, Queue *queue)
 {
   PixelCoords coords = QueueDequeue(queue); QUEUEOPS++;
-  if (!canPaintC(img, coords, label))
+  if (!canPaintC(img, coords, label, original_label))
     return 0;
   img->image[coords.v][coords.u] = label;
   PIXWRITES++;
@@ -885,9 +887,11 @@ int ImageRegionFillingWithQUEUE(Image img, int u, int v, uint16 label)
   QueueEnqueue(queue, PixelCoordsCreate(u, v)); QUEUEOPS++;
   PEAKQUEUE = QueueSize(queue);
 
+  uint16 original_label = img->image[v][u];
+
   int paintedPixels = 0;
   while (!QueueIsEmpty(queue))
-    paintedPixels += _imageRegionFillingWithQUEUE(img, label, queue);
+    paintedPixels += _imageRegionFillingWithQUEUE(img, label, original_label, queue);
   QueueDestroy(&queue);
   return paintedPixels;
 }
